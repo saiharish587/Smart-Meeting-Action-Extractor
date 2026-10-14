@@ -1,0 +1,13 @@
+# API credentials — NEVER commit this file
+config.js
+
+# Temp Office lock files
+~$*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.tmp

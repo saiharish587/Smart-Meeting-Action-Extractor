@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Meeting Action Extractor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <h1>🧠 Smart Meeting Action Extractor</h1>
+    <p>Turn meeting discussions into actionable tasks — powered by AI</p>
+  </header>
+
+  <main class="app-wrapper">
+
+    <!-- ── Error Banner ─────────────────────────────────────────────────── -->
+    <div id="error-banner" class="error-banner" role="alert" hidden>
+      <span>⚠</span>
+      <span id="error-text"></span>
+      <button id="error-close" class="error-close" aria-label="Dismiss error">✕</button>
+    </div>
+
+    <!-- ── Input Panel ──────────────────────────────────────────────────── -->
+    <section class="card" aria-label="Meeting notes input">
+      <div class="card-title">
+        <span class="icon">📝</span>
+        <h2>Meeting Notes</h2>
+      </div>
+
+      <label class="input-label" for="notes-input">Paste your meeting notes below</label>
+      <textarea
+        id="notes-input"
+        class="notes-textarea"
+        placeholder="e.g. Sai will build the dashboard by Friday. Abhilash will test the API by end of Thursday. We discussed migrating the database but no decision was made…"
+        aria-describedby="validation-msg char-count"
+        spellcheck="true"
+      ></textarea>
+
+      <div class="textarea-meta">
+        <span id="validation-msg" class="validation-msg" role="alert" hidden></span>
+        <span id="char-count" style="margin-left: auto">0 characters</span>
+      </div>
+
+      <div class="btn-row">
+        <button id="analyze-btn" class="btn btn--primary" type="button">
+          🔍 Analyze Meeting
+        </button>
+        <button id="load-sample-btn" class="btn btn--secondary" type="button">
+          📋 Load Sample Notes
+        </button>
+      </div>
+    </section>
+
+    <!-- ── Loading Overlay ──────────────────────────────────────────────── -->
+    <div id="loading-overlay" class="loading-overlay" role="status" aria-live="polite" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <span>Analyzing your meeting notes with AI…</span>
+    </div>
+
+    <!-- ── Results Panel ────────────────────────────────────────────────── -->
+    <section id="results-section" aria-label="Analysis results" hidden>
+
+      <div class="results-header">
+        <h2>📊 Analysis Results</h2>
+        <button id="copy-results-btn" class="btn btn--secondary" type="button" hidden>
+          📋 Copy Results
+        </button>
+      </div>
+
+      <!-- Summary -->
+      <article class="card" aria-labelledby="summary-heading">
+        <div class="card-title">
+          <span class="icon">📄</span>
+          <h3 id="summary-heading">Meeting Summary</h3>
+        </div>
+        <p id="summary-text" class="summary-text"></p>
+        <p class="human-review-note">
+          ⚠ AI-generated summary — please review for accuracy before sharing.
+        </p>
+      </article>
+
+      <!-- Key Decisions -->
+      <article class="card" aria-labelledby="decisions-heading">
+        <div class="card-title">
+          <span class="icon">✅</span>
+          <h3 id="decisions-heading">Key Decisions</h3>
+        </div>
+        <div id="decisions-content"></div>
+      </article>
+
+      <!-- Action Items -->
+      <article class="card" aria-labelledby="actions-heading">
+        <div class="card-title">
+          <span class="icon">📋</span>
+          <h3 id="actions-heading">Action Items</h3>
+        </div>
+        <div id="action-content"></div>
+      </article>
+
+      <!-- Risks & Missing Information -->
+      <article class="card" aria-labelledby="risks-heading">
+        <div class="card-title">
+          <span class="icon">⚠️</span>
+          <h3 id="risks-heading">Risks &amp; Missing Information</h3>
+        </div>
+        <div id="risks-content"></div>
+        <div id="missing-content"></div>
+      </article>
+
+    </section>
+  </main>
+
+  <!-- A1: single consolidated script (A4 hook inside) -->
+  <script src="script.js"></script>
+
+</body>
+</html>
