@@ -1,9 +1,10 @@
 """
-providers/qualcomm.py — Real Qualcomm Cirrascale AI Inference Suite provider.
+providers/qualcomm.py — Qualcomm Cirrascale AI Inference Suite provider.
 
-Endpoint: POST https://aisuite.cirrascale.com/apis/v2/chat/completions
-Auth:     Bearer <API_KEY>
-Format:   OpenAI-compatible chat completions (non-streaming)
+Uses the /v2/completions (text completion) endpoint because the chat completions
+endpoint on this deployment auto-triggers tool_calls mode, returning empty content.
+
+The prompt is formatted using Llama's [INST] format for instruction-tuned models.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from typing import Any, Dict
 
 import httpx
 
-from backend.prompt import SYSTEM_PROMPT
+from backend.prompt import build_completion_prompt
 
 
 # ── Custom exceptions ─────────────────────────────────────────────────────────
@@ -41,7 +42,13 @@ class QualcommParseError(Exception):
 # ── Provider ──────────────────────────────────────────────────────────────────
 
 class QualcommProvider:
-    """Async HTTP adapter for the Qualcomm Cirrascale AI Inference Suite."""
+    """
+    Async HTTP adapter for the Qualcomm Cirrascale AI Inference Suite.
+
+    Uses /v2/completions (raw text completion) because the /v2/chat/completions
+    endpoint on this deployment auto-triggers tool-calling mode, producing empty
+    message content regardless of the request payload.
+    """
 
     def __init__(self, api_key: str, endpoint: str, model: str, timeout_s: int = 90) -> None:
         self._api_key  = api_key
@@ -51,21 +58,19 @@ class QualcommProvider:
 
     async def analyze(self, notes: str) -> Dict[str, Any]:
         """
-        Call the Qualcomm chat completions endpoint with the extraction prompt.
+        Call the Qualcomm text completions endpoint with the extraction prompt.
 
         Returns a dict that conforms to the AnalysisResponse schema.
-        Raises specific exceptions for auth errors, rate limits, timeouts, and parse failures.
         """
-        url = f"{self._endpoint}/chat/completions"
+        url     = f"{self._endpoint}/completions"
+        prompt  = build_completion_prompt(notes)
         payload = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": notes},
-            ],
-            "stream": False,
-            "temperature": 0.1,   # low temperature for deterministic extraction
-            "max_tokens": 4096,
+            "model":       self._model,
+            "prompt":      prompt,
+            "stream":      False,
+            "temperature": 0.1,
+            "max_tokens":  2048,
+            "do_sample":   False,
         }
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -85,7 +90,7 @@ class QualcommProvider:
                 f"Network error when contacting Qualcomm AI: {exc}"
             ) from exc
 
-        # ── Status-code handling ───────────────────────────────────────────────
+        # ── Status-code handling ──────────────────────────────────────────────
         if response.status_code == 401:
             raise QualcommAuthError(
                 "The Qualcomm API key is invalid or expired. "
@@ -113,21 +118,14 @@ class QualcommProvider:
                 "Qualcomm AI returned a non-JSON response body."
             ) from exc
 
-        # Extract the model's text content (OpenAI-compatible format)
+        # Extract text from the completions response
         content = ""
         try:
             choices = data.get("choices", [])
             if choices:
-                msg = choices[0].get("message", {})
-                raw_content = msg.get("content", "")
-                # Content can be a string or Qualcomm's Content enum variant
-                if isinstance(raw_content, str):
-                    content = raw_content
-                elif isinstance(raw_content, dict):
-                    # Handle {"String": "..."} variant
-                    content = raw_content.get("String", "") or str(raw_content)
-                else:
-                    content = str(raw_content)
+                content = choices[0].get("text", "")
+                if not isinstance(content, str):
+                    content = str(content)
         except (KeyError, IndexError, TypeError) as exc:
             raise QualcommParseError(
                 f"Unexpected response structure from Qualcomm AI: {exc}"
@@ -136,13 +134,14 @@ class QualcommProvider:
         if not content.strip():
             raise QualcommParseError("Qualcomm AI returned an empty response content.")
 
-        # ── Extract JSON from content ──────────────────────────────────────────
-        # The model may wrap output in markdown fences despite instructions.
+        # ── Extract JSON from content ─────────────────────────────────────────
+        # The model may echo the prompt before the output — find the FIRST { and
+        # the matching closing } using bracket-depth counting.
         extracted = _extract_json(content)
         if extracted is None:
             raise QualcommParseError(
                 "AI response did not contain a valid JSON object. "
-                f"Response preview: {content[:200]}"
+                f"Response preview: {content[:300]}"
             )
 
         extracted["mock"]       = False
@@ -154,16 +153,17 @@ class QualcommProvider:
 
 def _extract_json(text: str) -> Dict[str, Any] | None:
     """
-    Try to extract a JSON object from text that may contain markdown fences or prose.
-    Returns the parsed dict or None if no valid JSON object is found.
+    Extract the FIRST complete JSON object from text (handles echoed prompts,
+    markdown fences, and trailing content after the closing brace).
+    Uses bracket-depth counting so nested objects are handled correctly.
     """
-    # 1. Try the entire text first
+    # 1. Try parsing the whole string as-is
     try:
         return json.loads(text.strip())
     except json.JSONDecodeError:
         pass
 
-    # 2. Strip markdown code fences: ```json ... ``` or ``` ... ```
+    # 2. Strip markdown fences
     fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if fence_match:
         try:
@@ -171,7 +171,7 @@ def _extract_json(text: str) -> Dict[str, Any] | None:
         except json.JSONDecodeError:
             pass
 
-    # 3. Find the outermost { ... } by bracket matching
+    # 3. Bracket-depth matching — find first { and its matching }
     start = text.find("{")
     if start == -1:
         return None
