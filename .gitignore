@@ -11,3 +11,12 @@ Thumbs.db
 # Editor
 .vscode/
 *.tmp
+
+# ── Backend (Python / FastAPI) ─────────────────────────────────────────────
+backend/.env
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/*.egg-info/

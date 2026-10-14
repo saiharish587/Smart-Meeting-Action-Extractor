@@ -121,7 +121,8 @@ const SAMPLE_AI_RESULT = {
 // CONSTANTS
 // ══════════════════════════════════════════════════════════════════════════════
 
-const STORAGE_KEY = 'smae_v1';
+const STORAGE_KEY  = 'smae_v1';
+const BACKEND_URL  = 'http://localhost:8000'; // FastAPI backend (run: uvicorn backend.main:app --reload)
 
 // ══════════════════════════════════════════════════════════════════════════════
 // STATE
@@ -374,78 +375,119 @@ function getStats() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Analyse meeting notes with the Qualcomm Cloud AI Playground.
+ * Analyse meeting notes via the FastAPI backend → Qualcomm Cirrascale AI.
  *
- * A4: Replace the two lines inside this function with a real fetch() call
- *     to your teammate's endpoint. The function must return a normalised
- *     result object matching the schema used by normaliseAIResult().
- *
- * Security: Do NOT hardcode an API key here. Use a teammate-supplied proxy
- * or reference an environment variable / config that is gitignored.
+ * The backend at BACKEND_URL handles API key security and AI provider selection.
+ * If no API key is configured on the backend, it returns mock results with mock=true.
  *
  * @param  {string} notes  Raw meeting notes from the textarea
  * @returns {Promise<object>} Normalised AI result
  */
 async function analyzeMeeting(notes) {
-  // ── A4: replace this block with the real Qualcomm API call ───────────────
-  //
-  //  Example structure when A4 is ready:
-  //
-  //  const response = await fetch(CONFIG.ENDPOINT_URL, {
-  //    method: 'POST',
-  //    headers: { 'Authorization': `Bearer ${CONFIG.API_KEY}`, 'Content-Type': 'application/json' },
-  //    body: JSON.stringify({
-  //      model: CONFIG.MODEL_ID,
-  //      messages: [
-  //        { role: 'system', content: SYSTEM_PROMPT },
-  //        { role: 'user',   content: notes }
-  //      ]
-  //    })
-  //  });
-  //  if (!response.ok) throw new Error(`AI request failed: ${response.status} ${response.statusText}`);
-  //  const data = await response.json();
-  //  const content = data.choices?.[0]?.message?.content ?? data.output ?? '';
-  //  const jsonStart = content.indexOf('{');
-  //  const jsonEnd   = content.lastIndexOf('}');
-  //  if (jsonStart === -1 || jsonEnd === -1) throw new Error('AI response did not contain valid JSON.');
-  //  const raw = JSON.parse(content.slice(jsonStart, jsonEnd + 1));
-  //  return normaliseAIResult(raw);
-  //
-  await new Promise(r => setTimeout(r, 2000)); // simulate network latency
-  return normaliseAIResult(SAMPLE_AI_RESULT);
-  // ── End A4 replacement block ──────────────────────────────────────────────
+  // A4: connected to FastAPI backend (POST /api/v1/meetings/analyze)
+  let response;
+  try {
+    response = await fetch(`${BACKEND_URL}/api/v1/meetings/analyze`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ notes }),
+    });
+  } catch (networkErr) {
+    throw new Error(
+      'Could not reach the backend server. Make sure it is running:\n' +
+      '  cd backend && uvicorn backend.main:app --reload'
+    );
+  }
+
+  if (!response.ok) {
+    let detail = `Server error ${response.status}`;
+    try {
+      const err = await response.json();
+      detail = err.detail || detail;
+    } catch (_) { /* ignore parse errors on error body */ }
+    throw new Error(detail);
+  }
+
+  const data = await response.json();
+
+  // Show a visible banner when the backend is running in mock mode
+  if (data.mock) {
+    showMockBanner();
+  } else {
+    hideMockBanner();
+  }
+
+  return normaliseAIResult(data);
+}
+
+/** Show/hide the mock mode indicator banner */
+function showMockBanner() {
+  let banner = document.getElementById('mock-mode-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'mock-mode-banner';
+    banner.style.cssText = [
+      'position:fixed', 'bottom:16px', 'right:16px', 'z-index:9999',
+      'background:#f59e0b', 'color:#1c1917', 'padding:10px 18px',
+      'border-radius:8px', 'font-size:13px', 'font-weight:600',
+      'box-shadow:0 4px 12px rgba(0,0,0,0.2)', 'display:flex',
+      'align-items:center', 'gap:8px'
+    ].join(';');
+    banner.innerHTML = '&#9888; Mock Mode &#8212; No API key configured. Results are simulated.';
+    document.body.appendChild(banner);
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => { if (banner.parentNode) banner.parentNode.removeChild(banner); }, 8000);
+  }
+}
+
+function hideMockBanner() {
+  const banner = document.getElementById('mock-mode-banner');
+  if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
 }
 
 /** Coerce raw AI JSON into the agreed internal schema.
- *  Handles missing fields, wrong types, and truncated responses gracefully. */
+ *  Handles missing fields, wrong types, truncated responses, and new
+ *  fields (open_questions, review_status, mock flag) gracefully. */
 function normaliseAIResult(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('AI returned an empty or invalid response.');
 
   const safe = (v, fb) => (v !== null && v !== undefined && v !== '') ? v : fb;
 
   const normItem = i => ({
-    task:               safe(i.task, 'Unspecified task'),
-    owner:              safe(i.owner, 'Not specified'),
-    deadline:           safe(i.deadline, 'Not specified'),
-    priority:           ['high','medium','low'].includes(i.priority) ? i.priority : 'medium',
+    task:                safe(i.task, 'Unspecified task'),
+    owner:               safe(i.owner, 'Not specified'),
+    deadline:            safe(i.deadline, 'Not specified'),
+    priority:            ['high','medium','low','not_specified'].includes(i.priority) ? i.priority : 'medium',
+    status:              ['open','in_progress','completed'].includes(i.status) ? i.status : 'open',
     missing_information: Array.isArray(i.missing_information) ? i.missing_information : [],
-    evidence:           safe(i.evidence, '')
+    evidence:            safe(i.evidence, ''),
+    review_status:       ['needs_review','approved','rejected'].includes(i.review_status) ? i.review_status : 'needs_review',
   });
 
   const normDecision = d => ({
     description: safe(d.description, 'Unspecified decision'),
-    status:      ['confirmed','proposed','unresolved'].includes(d.status) ? d.status : 'confirmed',
-    evidence:    safe(d.evidence, '')
+    status:      ['confirmed','proposed','needs_review','unresolved'].includes(d.status) ? d.status : 'confirmed',
+    evidence:    safe(d.evidence, ''),
+  });
+
+  const normRisk = r => ({
+    description: safe(r.description, 'Unspecified risk'),
+    severity:    ['high','medium','low'].includes(r.severity) ? r.severity : 'medium',
+    evidence:    safe(r.evidence, ''),
   });
 
   return {
     summary:             safe(raw.summary, 'No summary available.'),
-    decisions:           Array.isArray(raw.decisions)          ? raw.decisions.map(normDecision) : [],
-    action_items:        Array.isArray(raw.action_items)       ? raw.action_items.map(normItem)  : [],
-    risks:               Array.isArray(raw.risks)              ? raw.risks                        : [],
-    missing_information: Array.isArray(raw.missing_information)? raw.missing_information          : []
+    decisions:           Array.isArray(raw.decisions)           ? raw.decisions.map(normDecision)     : [],
+    action_items:        Array.isArray(raw.action_items)        ? raw.action_items.map(normItem)      : [],
+    risks:               Array.isArray(raw.risks)               ? raw.risks.map(normRisk)             : [],
+    missing_information: Array.isArray(raw.missing_information) ? raw.missing_information             : [],
+    open_questions:      Array.isArray(raw.open_questions)      ? raw.open_questions                  : [],
+    mock:                !!raw.mock,
+    model_used:          raw.model_used || null,
   };
 }
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ROUTING / NAVIGATION
