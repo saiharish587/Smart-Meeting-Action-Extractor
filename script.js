@@ -276,6 +276,12 @@ function updateTask(id, data) {
   saveState();
 }
 
+function deleteTask(id) {
+  if (!state.tasks[id]) return;
+  delete state.tasks[id];
+  saveState();
+}
+
 function createDecision({ meetingId, description, status, evidence }) {
   const id = genId();
   state.decisions[id] = {
@@ -1021,9 +1027,9 @@ function renderProgressPage() {
   listEl.innerHTML = pending.map(t => {
     const m = state.meetings[t.meetingId];
     return `
-      <div class="pending-item">
-        <input type="checkbox" class="pending-check" data-check="${esc(t.id)}"
-          aria-label="Mark task complete" />
+      <div class="pending-item" id="pi-${esc(t.id)}">
+        <input type="checkbox" class="pending-chk" data-pcheck="${esc(t.id)}"
+          aria-label="Select task to act on" />
         <div class="pending-info">
           <div class="pending-name">${esc(t.task)}</div>
           <div class="pending-meta">
@@ -1033,6 +1039,18 @@ function renderProgressPage() {
             ${t.deadline !== 'Not specified' ? `<span>📅 ${esc(t.deadline)}</span>` : ''}
             <span class="badge badge-${esc(t.priority)}">${capitalize(t.priority)}</span>
             <span class="badge badge-${esc(t.status)}">${statusLabel(t.status)}</span>
+          </div>
+          <!-- Action buttons — revealed when checkbox is ticked -->
+          <div class="pending-actions" id="pa-${esc(t.id)}" hidden>
+            <button class="btn btn-primary btn-sm" data-pcomplete="${esc(t.id)}">
+              ✓ Mark Complete
+            </button>
+            <button class="btn btn-danger btn-sm" data-pdelete="${esc(t.id)}">
+              🗑 Delete Task
+            </button>
+            <button class="btn btn-ghost btn-sm" data-pcancel="${esc(t.id)}">
+              Cancel
+            </button>
           </div>
         </div>
       </div>`;
@@ -1238,6 +1256,53 @@ document.addEventListener('click', e => {
   if (gotoEl) {
     currentMeetingId = gotoEl.dataset.goto;
     navigate('insights', { meetingId: currentMeetingId });
+    return;
+  }
+
+  // ── Pending task checkbox — reveal / hide action buttons ─────────────────
+  const pcheckEl = target.closest('[data-pcheck]');
+  if (pcheckEl) {
+    const tid     = pcheckEl.dataset.pcheck;
+    const actions = document.getElementById(`pa-${tid}`);
+    const checkbox = target.closest('input[type=checkbox]') || target;
+    if (actions) actions.hidden = !checkbox.checked;
+    return;
+  }
+
+  // ── Pending task: Mark Complete ───────────────────────────────────────────
+  const pcompleteEl = target.closest('[data-pcomplete]');
+  if (pcompleteEl) {
+    const tid = pcompleteEl.dataset.pcomplete;
+    updateTask(tid, { status: 'completed' });
+    renderProgressPage();
+    // Sync Insights page if it's open for the same meeting
+    if (currentPage === 'insights' && currentMeetingId === state.tasks[tid]?.meetingId) {
+      renderTasksSection(currentMeetingId);
+    }
+    return;
+  }
+
+  // ── Pending task: Delete ──────────────────────────────────────────────────
+  const pdeleteEl = target.closest('[data-pdelete]');
+  if (pdeleteEl) {
+    const tid = pdeleteEl.dataset.pdelete;
+    deleteTask(tid);
+    renderProgressPage();
+    // Sync Insights page progress bar if open for the same meeting
+    if (currentPage === 'insights' && currentMeetingId) {
+      renderTasksSection(currentMeetingId);
+    }
+    return;
+  }
+
+  // ── Pending task: Cancel (uncheck and hide buttons) ───────────────────────
+  const pcancelEl = target.closest('[data-pcancel]');
+  if (pcancelEl) {
+    const tid     = pcancelEl.dataset.pcancel;
+    const actions = document.getElementById(`pa-${tid}`);
+    const chk     = document.querySelector(`[data-pcheck="${tid}"]`);
+    if (actions) actions.hidden = true;
+    if (chk) chk.checked = false;
     return;
   }
 
