@@ -1,14 +1,24 @@
 """
 tests/conftest.py — pytest fixtures for Smart Meeting Action Extractor backend tests.
 All tests run without a real API key using the mock provider and httpx.AsyncClient.
+
+MOCK_MODE is forced via environment variable before any backend module is imported,
+so the Settings singleton always reports use_mock=True during the test session,
+even when a real .env file is present in the developer's environment.
 """
 from __future__ import annotations
 
-import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
+import os
 
-from backend.main import app
+# Force mock mode before importing any backend module.
+# config.py reads env vars at import time — this must come first.
+os.environ["MOCK_MODE"] = "true"
+
+import pytest                                         # noqa: E402
+import pytest_asyncio                                 # noqa: E402
+from httpx import ASGITransport, AsyncClient          # noqa: E402
+
+from backend.main import app                          # noqa: E402
 
 
 @pytest_asyncio.fixture

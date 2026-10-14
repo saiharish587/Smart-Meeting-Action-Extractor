@@ -118,6 +118,11 @@
             ></textarea>
           </div>
 
+          <p class="privacy-notice" role="note">
+            <span aria-hidden="true">🔒</span>
+            Notes are sent to an external AI provider for analysis. Avoid entering confidential or sensitive information.
+          </p>
+
           <div class="editor-footer">
             <span id="editor-char-count" class="text-sm text-muted" aria-live="polite">0 characters</span>
             <div class="editor-btn-row">
@@ -262,6 +267,9 @@
           <h1 class="page-title">My Progress</h1>
           <p class="page-subtitle">Task and meeting activity across all your recorded meetings.</p>
         </div>
+        <button class="btn btn-danger btn-sm" id="btn-clear-data" aria-label="Clear all meeting data">
+          🗑️ Clear All Data
+        </button>
       </div>
 
       <!-- Stat cards -->
@@ -426,6 +434,31 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" data-close="modal-reanalyze">Cancel</button>
       <button class="btn btn-danger" id="btn-confirm-reanalyze">Yes, Re-analyze</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Clear All Data -->
+<div id="modal-clear-data" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-clear-data-title">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-clear-data-title">Clear All Data?</span>
+      <button class="modal-close" data-close="modal-clear-data" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm" style="line-height:1.75">
+        This will permanently delete all meetings, tasks, decisions, and analysis results
+        stored in <strong>this browser</strong>.
+        <strong>This action cannot be undone.</strong>
+      </p>
+      <p class="text-sm text-muted mt-1">
+        Only data stored locally in this browser will be removed. Any data already sent
+        to the AI provider for inference cannot be recalled.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="modal-clear-data">Cancel</button>
+      <button class="btn btn-danger" id="btn-confirm-clear">Yes, Clear All Data</button>
     </div>
   </div>
 </div>

@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, status
 from backend.config import settings
 from backend.models import AnalysisResponse, AnalyzeRequest
 from backend.providers.mock import MockProvider
+from backend.redaction import redact_pii
 from backend.providers.qualcomm import (
     QualcommAuthError,
     QualcommParseError,
@@ -78,9 +79,19 @@ async def analyze_meeting(body: AnalyzeRequest) -> AnalysisResponse:
         )
         logger.info("Using Qualcomm provider (model=%s).", settings.qualcomm_model)
 
+    # Redact PII before sending to AI provider (best-effort; see redaction.py)
+    # Do NOT log the original or redacted transcript content.
+    redacted_notes = redact_pii(body.notes)
+    logger.info(
+        "Analysis request: provider=%s notes_len=%d redacted_len=%d",
+        "mock" if settings.use_mock else "qualcomm",
+        len(body.notes),
+        len(redacted_notes),
+    )
+
     # Call provider
     try:
-        raw: Dict[str, Any] = await provider.analyze(body.notes)
+        raw: Dict[str, Any] = await provider.analyze(redacted_notes)
     except QualcommAuthError as exc:
         logger.error("Qualcomm auth error: %s", exc)
         raise HTTPException(
@@ -113,7 +124,7 @@ async def analyze_meeting(body: AnalyzeRequest) -> AnalysisResponse:
         ) from exc
     except Exception as exc:
         # Catch-all: never leak stack traces or credentials
-        logger.exception("Unexpected error during analysis: %s", exc)
+        logger.error("Unexpected error during analysis: %s", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred. Please try again.",

@@ -226,6 +226,46 @@ function loadState() {
   }
 }
 
+/**
+ * Remove all application-owned data from localStorage and reset in-memory state.
+ *
+ * Scope: Only the single key used by this application (STORAGE_KEY = 'smae_v1').
+ * Unrelated localStorage entries are not touched.
+ *
+ * Note: Data already sent to the AI provider for inference cannot be recalled.
+ * This function only clears data stored locally in this browser.
+ */
+function clearAllData() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.warn('[MeetingAI] localStorage clear failed:', e);
+    showEditorBanner('error', 'Failed to clear stored data. Please try again.');
+    return;
+  }
+
+  // Reset in-memory state
+  state = { meetings: {}, tasks: {}, decisions: {}, openQuestions: {} };
+  currentMeetingId    = null;
+  meetingsSubView     = 'list';
+  taskStatusFilter    = 'all';
+  meetingStatusFilter = 'all';
+  meetingSearchQuery  = '';
+
+  // Navigate to meetings page (empty list) and show success feedback
+  navigate('meetings');
+
+  // Show a temporary success banner on the meetings page
+  const banner = document.getElementById('meetings-banner');
+  if (banner) {
+    const textEl = document.getElementById('meetings-banner-text');
+    if (textEl) textEl.textContent = 'All data cleared successfully.';
+    banner.className = 'banner banner-success';
+    banner.hidden = false;
+    setTimeout(() => { banner.hidden = true; }, 3500);
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // STATE MUTATIONS
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1283,6 +1323,19 @@ document.addEventListener('click', e => {
     clearAnalysis(currentMeetingId, false); // clear everything including manual tasks
     navigate('meetings', { subView: 'notes', meetingId: currentMeetingId });
     runAnalysis(currentMeetingId);
+    return;
+  }
+
+  // ── Open Clear All Data confirm modal ────────────────────────────────────
+  if (target.id === 'btn-clear-data') {
+    openModal('modal-clear-data');
+    return;
+  }
+
+  // ── Confirm Clear All Data ────────────────────────────────────────────────
+  if (target.id === 'btn-confirm-clear') {
+    closeModal('modal-clear-data');
+    clearAllData();
     return;
   }
 
