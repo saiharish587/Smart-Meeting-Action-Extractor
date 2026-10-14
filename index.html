@@ -6,118 +6,430 @@
   <title>Smart Meeting Action Extractor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- ── Header ──────────────────────────────────────────────────────────── -->
-  <header class="app-header">
-    <h1>🧠 Smart Meeting Action Extractor</h1>
-    <p>Turn meeting discussions into actionable tasks — powered by AI</p>
-  </header>
+<div class="app">
 
-  <main class="app-wrapper">
-
-    <!-- ── Error Banner ─────────────────────────────────────────────────── -->
-    <div id="error-banner" class="error-banner" role="alert" hidden>
-      <span>⚠</span>
-      <span id="error-text"></span>
-      <button id="error-close" class="error-close" aria-label="Dismiss error">✕</button>
+  <!-- ═══════════════════════════════════════════ SIDEBAR ════════════════════ -->
+  <nav class="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-brand">
+      <span class="brand-icon">🧠</span>
+      <div>
+        <span class="brand-name">MeetingAI</span>
+        <span class="brand-sub">Action Extractor</span>
+      </div>
     </div>
 
-    <!-- ── Input Panel ──────────────────────────────────────────────────── -->
-    <section class="card" aria-label="Meeting notes input">
-      <div class="card-title">
-        <span class="icon">📝</span>
-        <h2>Meeting Notes</h2>
+    <ul class="nav-list" role="list">
+      <li>
+        <div class="nav-item active" data-nav="meetings" role="button" tabindex="0" aria-label="Meetings page">
+          <span class="nav-icon" aria-hidden="true">📅</span>
+          <span>Meetings</span>
+        </div>
+      </li>
+      <li>
+        <div class="nav-item disabled" data-nav="insights" id="nav-insights" role="button" tabindex="0" aria-label="Meeting Insights page">
+          <span class="nav-icon" aria-hidden="true">📊</span>
+          <span>Insights</span>
+        </div>
+      </li>
+      <li>
+        <div class="nav-item" data-nav="progress" role="button" tabindex="0" aria-label="My Progress page">
+          <span class="nav-icon" aria-hidden="true">📈</span>
+          <span>My Progress</span>
+        </div>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">Hack-AI-Thon 2026 · EP-01</div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════ MAIN ═══════════════════════ -->
+  <main class="main">
+
+    <!-- ─────────────────────── PAGE 1: MEETINGS ──────────────────────────── -->
+    <section id="page-meetings" class="page" aria-label="Meetings">
+
+      <!-- List view -->
+      <div id="meetings-list-view">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Meetings</h1>
+            <p class="page-subtitle">Create, organize, and analyze your meeting notes with AI.</p>
+          </div>
+          <button class="btn btn-primary btn-lg" id="btn-create-meeting" aria-label="Create new meeting">
+            + New Meeting
+          </button>
+        </div>
+
+        <div id="meetings-banner" class="banner banner-error" hidden role="alert">
+          <span>⚠</span>
+          <span id="meetings-banner-text"></span>
+          <button class="banner-dismiss" data-dismiss="meetings-banner" aria-label="Dismiss">✕</button>
+        </div>
+
+        <div class="toolbar">
+          <input type="search" class="search-input" id="meeting-search"
+            placeholder="Search meetings by title or type…" aria-label="Search meetings" />
+          <div class="filter-chips" id="meeting-filter-chips" role="group" aria-label="Filter by status">
+            <button class="chip active" data-m-filter="all">All</button>
+            <button class="chip" data-m-filter="draft">Draft</button>
+            <button class="chip" data-m-filter="complete">Analyzed</button>
+          </div>
+        </div>
+
+        <div id="meetings-list-container" aria-live="polite">
+          <!-- Rendered by JS -->
+        </div>
       </div>
 
-      <label class="input-label" for="notes-input">Paste your meeting notes below</label>
-      <textarea
-        id="notes-input"
-        class="notes-textarea"
-        placeholder="e.g. Sai will build the dashboard by Friday. Abhilash will test the API by end of Thursday. We discussed migrating the database but no decision was made…"
-        aria-describedby="validation-msg char-count"
-        spellcheck="true"
-      ></textarea>
+      <!-- Notes editor view -->
+      <div id="meetings-notes-view" hidden>
+        <div class="notes-editor">
 
-      <div class="textarea-meta">
-        <span id="validation-msg" class="validation-msg" role="alert" hidden></span>
-        <span id="char-count" style="margin-left: auto">0 characters</span>
+          <div class="editor-header">
+            <button class="editor-back" id="btn-back-to-meetings" aria-label="Back to meetings list">
+              ← Back
+            </button>
+            <div class="editor-title-block">
+              <div class="editor-title" id="editor-meeting-title">Meeting</div>
+              <div class="editor-meta" id="editor-meeting-meta"></div>
+            </div>
+            <div id="editor-status-badge"></div>
+          </div>
+
+          <div id="editor-banner" class="banner" hidden role="alert">
+            <span id="editor-banner-icon" aria-hidden="true"></span>
+            <span id="editor-banner-text"></span>
+            <button class="banner-dismiss" data-dismiss="editor-banner" aria-label="Dismiss">✕</button>
+          </div>
+
+          <div>
+            <label class="form-label" for="notes-textarea">Meeting Notes / Transcript</label>
+            <textarea
+              id="notes-textarea"
+              class="notes-textarea"
+              placeholder="Paste or type your meeting notes here…&#10;&#10;Example:&#10;Sai will build the action-item dashboard by Friday.&#10;Abhilash will test the Qualcomm AI endpoint by Thursday.&#10;The team decided to use a REST API approach.&#10;Authentication bug raised — no owner or deadline assigned yet."
+              spellcheck="true"
+              aria-label="Meeting notes"
+            ></textarea>
+          </div>
+
+          <div class="editor-footer">
+            <span id="editor-char-count" class="text-sm text-muted" aria-live="polite">0 characters</span>
+            <div class="editor-btn-row">
+              <button class="btn btn-secondary" id="btn-load-sample">📋 Load Sample</button>
+              <button class="btn btn-secondary" id="btn-save-draft">💾 Save Draft</button>
+              <button class="btn btn-primary" id="btn-analyze">🔍 Analyze Meeting</button>
+            </div>
+          </div>
+
+          <div id="editor-loading" class="loading-wrap" hidden aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <span>Analyzing your meeting notes with AI — please wait…</span>
+          </div>
+
+        </div>
       </div>
 
-      <div class="btn-row">
-        <button id="analyze-btn" class="btn btn--primary" type="button">
-          🔍 Analyze Meeting
-        </button>
-        <button id="load-sample-btn" class="btn btn--secondary" type="button">
-          📋 Load Sample Notes
-        </button>
-      </div>
     </section>
 
-    <!-- ── Loading Overlay ──────────────────────────────────────────────── -->
-    <div id="loading-overlay" class="loading-overlay" role="status" aria-live="polite" hidden>
-      <div class="spinner" aria-hidden="true"></div>
-      <span>Analyzing your meeting notes with AI…</span>
-    </div>
+    <!-- ─────────────────────── PAGE 2: INSIGHTS ──────────────────────────── -->
+    <section id="page-insights" class="page" aria-label="Meeting Insights" hidden>
 
-    <!-- ── Results Panel ────────────────────────────────────────────────── -->
-    <section id="results-section" aria-label="Analysis results" hidden>
+      <div class="d-flex items-center gap-2" style="margin-bottom:1rem">
+        <span class="nav-item-link text-sm" data-nav="meetings"
+          style="cursor:pointer;color:var(--violet);font-weight:600;">
+          ← All Meetings
+        </span>
+      </div>
 
-      <div class="results-header">
-        <h2>📊 Analysis Results</h2>
-        <button id="copy-results-btn" class="btn btn--secondary" type="button" hidden>
-          📋 Copy Results
-        </button>
+      <div id="insights-error" class="banner banner-error" hidden role="alert">
+        <span>⚠</span>
+        <span id="insights-error-text"></span>
+        <button class="banner-dismiss" data-dismiss="insights-error" aria-label="Dismiss">✕</button>
+      </div>
+
+      <!-- Meeting header card -->
+      <div class="insights-header" id="insights-header">
+        <!-- Rendered by JS -->
       </div>
 
       <!-- Summary -->
-      <article class="card" aria-labelledby="summary-heading">
-        <div class="card-title">
-          <span class="icon">📄</span>
-          <h3 id="summary-heading">Meeting Summary</h3>
+      <div class="card section-gap" id="card-summary">
+        <div class="card-header">
+          <div class="card-title"><span aria-hidden="true">📄</span> Meeting Summary</div>
+          <button class="btn btn-secondary btn-sm" id="btn-copy-summary">Copy</button>
         </div>
-        <p id="summary-text" class="summary-text"></p>
-        <p class="human-review-note">
-          ⚠ AI-generated summary — please review for accuracy before sharing.
-        </p>
-      </article>
-
-      <!-- Key Decisions -->
-      <article class="card" aria-labelledby="decisions-heading">
-        <div class="card-title">
-          <span class="icon">✅</span>
-          <h3 id="decisions-heading">Key Decisions</h3>
+        <p id="summary-text" class="text-sm" style="line-height:1.8;color:var(--text-2)"></p>
+        <div class="review-note">
+          <span aria-hidden="true">⚠</span>
+          AI-generated content — please review carefully before acting on these results.
         </div>
-        <div id="decisions-content"></div>
-      </article>
+      </div>
 
       <!-- Action Items -->
-      <article class="card" aria-labelledby="actions-heading">
-        <div class="card-title">
-          <span class="icon">📋</span>
-          <h3 id="actions-heading">Action Items</h3>
+      <div class="card section-gap">
+        <div class="card-header">
+          <div class="card-title"><span aria-hidden="true">✅</span> Action Items</div>
+          <div class="card-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-copy-tasks">Copy Tasks</button>
+            <button class="btn btn-primary btn-sm" id="btn-add-task">+ Add Task</button>
+          </div>
         </div>
-        <div id="action-content"></div>
-      </article>
 
-      <!-- Risks & Missing Information -->
-      <article class="card" aria-labelledby="risks-heading">
-        <div class="card-title">
-          <span class="icon">⚠️</span>
-          <h3 id="risks-heading">Risks &amp; Missing Information</h3>
+        <!-- Progress bar -->
+        <div class="progress-wrap" id="tasks-progress-wrap">
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-fill" id="task-progress-fill" style="width:0%"></div>
+          </div>
+          <span class="progress-label" id="task-progress-label">0 / 0 done</span>
         </div>
-        <div id="risks-content"></div>
-        <div id="missing-content"></div>
-      </article>
+
+        <!-- Filter chips -->
+        <div class="filter-chips" id="task-filter-chips" style="margin-bottom:.875rem"
+          role="group" aria-label="Filter by task status">
+          <button class="chip active" data-t-filter="all">All</button>
+          <button class="chip" data-t-filter="pending">Pending</button>
+          <button class="chip" data-t-filter="in_progress">In Progress</button>
+          <button class="chip" data-t-filter="completed">Completed</button>
+          <button class="chip" data-t-filter="cancelled">Cancelled</button>
+        </div>
+
+        <!-- Desktop table -->
+        <div class="table-wrapper">
+          <table class="task-table" aria-label="Action items">
+            <thead>
+              <tr>
+                <th style="width:32px"></th>
+                <th>Task</th>
+                <th>Owner</th>
+                <th>Deadline</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th style="width:72px"></th>
+              </tr>
+            </thead>
+            <tbody id="tasks-table-body">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile cards -->
+        <div class="task-cards" id="tasks-cards-mobile" aria-label="Action items">
+          <!-- Rendered by JS -->
+        </div>
+
+        <div id="tasks-empty" class="empty-state" hidden>
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">No tasks here</div>
+          <p class="empty-sub">Try a different filter or add a task manually.</p>
+        </div>
+
+      </div>
+
+      <!-- Decisions -->
+      <div class="card section-gap">
+        <div class="card-header">
+          <div class="card-title"><span aria-hidden="true">🏛️</span> Key Decisions</div>
+        </div>
+        <div id="decisions-content">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Risks & Missing Info -->
+      <div class="card section-gap">
+        <div class="card-header">
+          <div class="card-title"><span aria-hidden="true">⚠️</span> Risks &amp; Missing Information</div>
+        </div>
+        <div id="risks-content">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
 
     </section>
+
+    <!-- ─────────────────────── PAGE 3: MY PROGRESS ───────────────────────── -->
+    <section id="page-progress" class="page" aria-label="My Progress" hidden>
+
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">My Progress</h1>
+          <p class="page-subtitle">Task and meeting activity across all your recorded meetings.</p>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="stat-grid" id="stat-grid">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Completion rate -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><span aria-hidden="true">📊</span> Task Completion Rate</div>
+          <span id="completion-pct" class="fw-700 text-sm"></span>
+        </div>
+        <div class="progress-track" style="height:10px"
+          role="progressbar" aria-valuemin="0" aria-valuemax="100" id="completion-bar-wrap">
+          <div class="progress-fill" id="completion-fill" style="width:0%"></div>
+        </div>
+        <p id="completion-sub" class="text-sm text-muted mt-1"></p>
+      </div>
+
+      <!-- Pending tasks list -->
+      <div class="card section-gap">
+        <div class="card-header">
+          <div class="card-title"><span aria-hidden="true">⏳</span> My Pending Tasks</div>
+          <span id="pending-count" class="text-sm text-muted"></span>
+        </div>
+        <div id="pending-tasks-list" aria-live="polite">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+    </section>
+
   </main>
+</div>
 
-  <!-- A1: single consolidated script (A4 hook inside) -->
-  <script src="script.js"></script>
+<!-- ═══════════════════════════════════════════════ MODALS ══════════════════ -->
 
+<!-- Create Meeting -->
+<div id="modal-create" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-create-title">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-create-title">New Meeting</span>
+      <button class="modal-close" data-close="modal-create" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="f-title">Title <span class="form-required" aria-hidden="true">*</span></label>
+        <input type="text" id="f-title" class="form-input"
+          placeholder="e.g. Sprint Planning — Week 42" autocomplete="off" />
+        <p class="val-msg" id="val-f-title" hidden role="alert"></p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-date">Date <span class="form-required" aria-hidden="true">*</span></label>
+        <input type="date" id="f-date" class="form-input" />
+        <p class="val-msg" id="val-f-date" hidden role="alert"></p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-type">Meeting Type</label>
+        <select id="f-type" class="form-select">
+          <option value="">— Select type (optional) —</option>
+          <option>Team Meeting</option>
+          <option>Project Review</option>
+          <option>Client Meeting</option>
+          <option>Personal Meeting</option>
+          <option>One-on-One</option>
+          <option>All Hands</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="modal-create">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-create">Create Meeting</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit / Add Task -->
+<div id="modal-task" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-task-title">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-task-title">Edit Task</span>
+      <button class="modal-close" data-close="modal-task" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="t-id" />
+      <input type="hidden" id="t-is-new" value="false" />
+      <div class="form-group">
+        <label class="form-label" for="t-desc">Task Description <span class="form-required" aria-hidden="true">*</span></label>
+        <input type="text" id="t-desc" class="form-input" placeholder="What needs to be done?" />
+        <p class="val-msg" id="val-t-desc" hidden role="alert"></p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="t-owner">Owner</label>
+        <input type="text" id="t-owner" class="form-input" placeholder="Not specified" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="t-deadline">Deadline</label>
+        <input type="text" id="t-deadline" class="form-input"
+          placeholder="e.g. Friday, 2026-10-18, or End of week" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="t-priority">Priority</label>
+        <select id="t-priority" class="form-select">
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="t-status">Status</label>
+        <select id="t-status" class="form-select">
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="modal-task">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-task">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Notes -->
+<div id="modal-notes" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-notes-title">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-notes-title">Original Meeting Notes</span>
+      <button class="modal-close" data-close="modal-notes" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <pre id="notes-preview"
+        style="white-space:pre-wrap;font-family:inherit;font-size:.875rem;line-height:1.75;
+               color:var(--text-2);max-height:55vh;overflow-y:auto;"></pre>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="modal-notes">Close</button>
+      <button class="btn btn-primary" id="btn-edit-from-notes-modal">Edit Notes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Re-analyze -->
+<div id="modal-reanalyze" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-reanalyze-title">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-reanalyze-title">Re-run Analysis?</span>
+      <button class="modal-close" data-close="modal-reanalyze" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm" style="line-height:1.75">
+        This will replace the current AI results with a fresh analysis.
+        <strong>Manual edits to task owners, deadlines, and statuses will be lost.</strong>
+      </p>
+      <p class="text-sm text-muted mt-1">
+        Tasks you added manually will also be removed. Are you sure?
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close="modal-reanalyze">Cancel</button>
+      <button class="btn btn-danger" id="btn-confirm-reanalyze">Yes, Re-analyze</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
